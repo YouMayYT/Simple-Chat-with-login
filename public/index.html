@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+  <title>WebSocket Chat</title>
+</head>
+<body>
+  <div id="loginContainer">
+    <input type="text" id="usernameInput" placeholder="Enter your username">
+    <button id="loginButton">Login</button>
+  </div>
+  
+  <div class="chat-container" id="chatContainer" style="display: none;">
+    <div class="messages-container" id="messages"></div>
+    <div class="message-input-container">
+      <input type="text" id="messageInput" placeholder="Type a message...">
+      <button id="sendButton">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const loginContainer = document.getElementById('loginContainer');
+    const usernameInput = document.getElementById('usernameInput');
+    const loginButton = document.getElementById('loginButton');
+    const chatContainer = document.getElementById('chatContainer');
+    const messagesDiv = document.getElementById('messages');
+    const messageInput = document.getElementById('messageInput');
+    const sendButton = document.getElementById('sendButton');
+    let username = '';
+    let ws;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const savedUsername = localStorage.getItem('username');
+      if (savedUsername) {
+        username = savedUsername;
+        loginContainer.style.display = 'none';
+        chatContainer.style.display = 'block';
+        startWebSocket();
+      }
+    });
+
+    loginButton.addEventListener('click', () => {
+      username = usernameInput.value;
+      if (username) {
+        localStorage.setItem('username', username);
+        loginContainer.style.display = 'none';
+        chatContainer.style.display = 'block';
+        startWebSocket();
+      }
+    });
+
+    function startWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${protocol}://${window.location.host}`;
+      ws = new WebSocket(wsUrl);
+
+      ws.addEventListener('open', () => {
+        ws.send(JSON.stringify({ type: 'login', username }));
+      });
+
+      ws.addEventListener('message', (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'history') {
+          data.messages.forEach(message => displayMessage(message.text, message.sender));
+        } else if (data.type === 'message') {
+          displayMessage(data.message.text, data.message.sender);
+        }
+      });
+
+      sendButton.addEventListener('click', () => {
+        const message = messageInput.value;
+        ws.send(JSON.stringify({ type: 'message', text: message, sender: username }));
+        displayMessage(message, username);
+        messageInput.value = '';
+      });
+    }
+
+    function displayMessage(message, sender) {
+      const messageContainer = document.createElement('div');
+      const messageElement = document.createElement('div');
+      messageElement.textContent = message;
+
+      messageContainer.classList.add('message-container');
+
+      if (sender === username) {
+        messageContainer.classList.add('sender-message-container');
+        messageElement.classList.add('message-bubble', 'sender-message-bubble');
+      } else {
+        messageElement.classList.add('message-bubble');
+      }
+
+      messageContainer.appendChild(messageElement);
+      messagesDiv.appendChild(messageContainer);
+
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+  </script>
+</body>
+</html>
